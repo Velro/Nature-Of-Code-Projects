@@ -1,0 +1,1 @@
+#define Vector2 ofVec2f
