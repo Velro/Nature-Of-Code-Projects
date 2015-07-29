@@ -1,25 +1,22 @@
 #include "ofApp.h"
 
-#define MUTATION_RATE 0.1f
 Vector2 random2D()
 {
 	Vector2 result;
 
-	float angle = ofRandom(0, PI);
+	float angle = ofRandom(0, 360);
 	result.x = 1 * cos(angle);
 	result.y = 1 * sin(angle);
 
 	return result;
 }
 
-Vector2 targetPos;
 
-#define LIFETIME 120
 class DNA
 {
 public:
 
-	Vector2 genes[LIFETIME];// = Vector2[100];
+	Vector2 genes[LIFETIME];
 	float maxforce = 0.1f;
 
 	DNA()
@@ -62,14 +59,23 @@ public:
 class Rocket
 {
 public:
-	Vector2 position;
-	Vector2 velocity;
-	Vector2 acceleration;
+	Vector2 position = Vector2(0, 0);
+	Vector2 velocity = Vector2(0, 0);
+	Vector2 acceleration = Vector2(0, 0);
 
-	float fitness;
+	float fitness = 0;
 
 	DNA dna;
 
+	Rocket()
+	{
+		
+	}
+
+	Rocket(Vector2 pos)
+	{
+		position = pos;
+	}
 	void applyForce(Vector2 force)
 	{
 		acceleration += force;
@@ -82,6 +88,11 @@ public:
 		acceleration *= 0;
 	}
 
+	void draw()
+	{
+		ofDrawArrow(position, position + velocity, 0.1f);
+	}
+
 	int geneCounter = 0;
 	void run()
 	{
@@ -89,16 +100,21 @@ public:
 		geneCounter++;
 
 		update();
+		draw();
 	}
 
 	void calcFitness()
 	{
+		//NOTE: this isn't a good way of calculating fitness,
+		// this will be explored more in later examples
 		float d = position.distance(targetPos);
-		fitness = (1 / d)*(1 / d);
+		if (d > 800)
+			d = 800;
+		fitness = ofLerp(1, 0, d / 700);
 	}	
 };
 
-#define POPULATION_COUNT 100
+
 class Population
 {
 public:
@@ -106,9 +122,24 @@ public:
 	vector<Rocket> matingPool;
 	int generation;
 
+	Vector2 startingPosition;
 	Population()
 	{
-	
+
+	}
+
+	Population(Vector2 pos)
+	{
+		startingPosition = pos;
+		for (int i = 0; i < POPULATION_COUNT; i++)
+		{
+			
+			Rocket rocket = Rocket(pos);
+			rocket.dna = DNA();
+			matingPool.push_back(rocket);
+			population[i] = rocket;
+			generation = 0;
+		}
 	}
 
 	void fitness()
@@ -121,6 +152,7 @@ public:
 
 	void selection()
 	{
+		matingPool.clear();
 		for (int i = 0; i < ArrayCount(population); i++)
 		{
 			int n = int(population[i].fitness * ArrayCount(population));
@@ -144,21 +176,31 @@ public:
 			DNA child = parentA.crossover(parentB);
 			child.mutate();
 
+			population[i] = Rocket(startingPosition);
 			population[i].dna = child;
+		}
+	}
+
+	void live()
+	{
+		for (int i = 0; i < ArrayCount(population); i++)
+		{
+			population[i].run();
 		}
 	}
 };
 
-int lifetime;
-int lifeCounter;
+int lifeCounter = 0;
 
 Population population;
-
 //--------------------------------------------------------------
 void ofApp::setup()
 {
-	targetPos = Vector2(ofGetWindowWidth() / 2, ofGetWindowHeight() / 4);
-	population = Population();
+	ofSetFrameRate(60);
+
+	targetPos = Vector2(ofGetWindowWidth() / 2, ofGetWindowHeight() / 6);
+	Vector2 pos = Vector2(ofGetWindowWidth() / 2, ofGetWindowHeight());
+	population = Population(pos);
 }
 
 
@@ -170,50 +212,21 @@ void ofApp::draw()
 	ofSetColor(ofColor::black);
 	ofNoFill();
 	ofSetLineWidth(5);
-	ofRect(ofPoint(targetPos), 50, 50);
-}
-
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::keyReleased(int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
-
+	ofRect(ofPoint(targetPos) - ofPoint(10,10), 20, 20);
+	
+	
+	if (lifeCounter < LIFETIME)
+	{
+		population.live();
+		lifeCounter++;
+	}
+	else
+	{
+		lifeCounter = 0;
+		population.fitness();
+		population.selection();
+		population.reproduction();
+		population.generation++;
+	}
+	
 }
